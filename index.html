@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Joguinho — Capture o Bug!</title>
+  <style>
+    :root{
+      --bg: #0b0f13;
+      --panel: #0f1720;
+      --accent: #00ffcc;
+      --muted: #9aa5ad;
+      --danger: #ff4d6d;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:Inter, system-ui, Arial, sans-serif;
+      background: linear-gradient(180deg,var(--bg), #071018 120%);
+      color:var(--accent);
+      display:flex;align-items:center;justify-content:center;
+      min-height:100vh;
+    }
+    .container{
+      width:920px; max-width:96%; background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+      border:1px solid rgba(0,255,204,0.06); border-radius:12px; padding:18px; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      display:grid;grid-template-columns: 1fr 320px; gap:16px; align-items:start;
+    }
+    h1{margin:0 0 8px 0; font-size:18px}
+    .game-area{
+      background:linear-gradient(180deg,#07121a, #071a21); border-radius:8px; padding:12px; position:relative; height:520px;
+      overflow:hidden; border:1px solid rgba(0,255,204,0.03);
+    }
+    /* the playing field element */
+    #field{
+      position:relative; width:100%; height:100%; background: repeating-linear-gradient(0deg, rgba(255,255,255,0.01) 0 1px, transparent 1px 24px);
+    }
+    .bug{
+      position:absolute; width:48px; height:48px; border-radius:8px; display:flex;align-items:center;justify-content:center; font-weight:700;
+      background:linear-gradient(180deg,#00ffcc22,#00ffcc15); border:2px solid rgba(0,255,204,0.15); color:var(--accent); box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+      cursor:pointer; user-select:none;
+    }
+    .hud{
+      padding:12px; background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent); border-radius:8px; border:1px solid rgba(255,255,255,0.02);
+    }
+    .panel{background:var(--panel); padding:12px; border-radius:8px; color:var(--muted);}
+    .stats{display:flex; gap:8px; margin-bottom:8px;}
+    .stat{flex:1; background:rgba(255,255,255,0.02); padding:8px; border-radius:6px; text-align:center}
+    .stat strong{display:block; color:var(--accent); font-size:18px}
+    button{background:var(--accent); color:#021212; border:none; padding:10px 12px; border-radius:8px; cursor:pointer; font-weight:700}
+    button.secondary{background:transparent; color:var(--muted); border:1px solid rgba(255,255,255,0.03)}
+    .controls{display:flex; gap:8px; margin-top:10px}
+    .footer-note{font-size:12px; color:var(--muted); margin-top:10px}
+    .center{display:flex;align-items:center;justify-content:center}
+    /* little animation when you click */
+    .pop { transform: scale(1.08); transition: transform 120ms ease; }
+    /* mobile layout tweaks */
+    @media (max-width:820px){
+      .container{grid-template-columns:1fr;}
+      .game-area{height:420px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <h1>Capture o Bug! 🐞</h1>
+          <div style="color:var(--muted);font-size:13px">Clique nos 'bugs' que aparecem na tela para ganhar pontos. Evite os bugs vermelhos!</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;color:var(--muted)">Modo</div>
+          <div style="font-weight:700">Casual</div>
+        </div>
+      </div>
+
+      <div class="game-area">
+        <div id="field"></div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-top:12px;align-items:center;justify-content:space-between">
+        <div class="panel" style="flex:1">
+          <div style="font-size:13px;color:var(--muted)">Melhor pontuação: <strong id="best" style="color:var(--accent)">0</strong></div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button id="startBtn">Iniciar</button>
+          <button class="secondary" id="resetBtn">Resetar</button>
+        </div>
+      </div>
+    </div>
+
+    <aside class="hud">
+      <div class="stats">
+        <div class="stat"><small>Pontos</small><strong id="score">0</strong></div>
+        <div class="stat"><small>Tempo</small><strong id="time">30</strong></div>
+        <div class="stat"><small>Cliques</small><strong id="clicks">0</strong></div>
+      </div>
+
+      <div class="panel">
+        <h3 style="margin:0 0 8px 0;color:var(--accent)">Regras</h3>
+        <ul style="margin:0 0 6px 18px;color:var(--muted);font-size:13px">
+          <li>Clique nos quadrados verdes para ganhar +10 pontos.</li>
+          <li>Evite os quadrados vermelhos: clicá-los custa -15 pontos.</li>
+          <li>O jogo dura o tempo mostrado. Cada captura aumenta a velocidade gradualmente.</li>
+        </ul>
+        <div class="controls">
+          <label style="font-size:13px;color:var(--muted)">Duração: <select id="durationSelect" style="background:transparent;color:var(--accent);border:none;font-weight:700">
+            <option value="20">20s</option>
+            <option value="30" selected>30s</option>
+            <option value="45">45s</option>
+            <option value="60">60s</option>
+          </select></label>
+        </div>
+        <div class="footer-note">Dica: clique rápido e movimente-se — os bugs reaparecem em posições aleatórias.</div>
+      </div>
+
+      <div style="margin-top:12px;text-align:center">
+        <button id="shareBtn">Compartilhar resultado</button>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    // Elementos
+    const field = document.getElementById('field');
+    const scoreEl = document.getElementById('score');
+    const timeEl = document.getElementById('time');
+    const clicksEl = document.getElementById('clicks');
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const bestEl = document.getElementById('best');
+    const durationSelect = document.getElementById('durationSelect');
+    const shareBtn = document.getElementById('shareBtn');
+
+    let score = 0, timeLeft = parseInt(timeEl.textContent), clicks = 0;
+    let timer = null, spawnInterval = null, gameRunning = false;
+    let best = Number(localStorage.getItem('jogo_best') || 0);
+    bestEl.textContent = best;
+
+    // gameplay params
+    const baseSpawnMs = 900; // how often a new bug appears initially
+    let currentSpawnMs = baseSpawnMs;
+    let bugSpeed = 1; // multiplier for movement
+    let activeBugs = new Set();
+
+    function rand(min,max){ return Math.floor(Math.random()*(max-min+1))+min }
+
+    function createBug(type='good'){
+      const el = document.createElement('div');
+      el.className = 'bug';
+      el.dataset.type = type;
+      el.textContent = type === 'good' ? '•' : '✖';
+      // size variation
+      const size = type === 'good' ? rand(36,52) : rand(36,56);
+      el.style.width = size+'px'; el.style.height = size+'px';
+      // position random within field
+      const fRect = field.getBoundingClientRect();
+      const x = rand(8, Math.max(8, fRect.width - size - 8));
+      const y = rand(8, Math.max(8, fRect.height - size - 8));
+      el.style.left = x+'px'; el.style.top = y+'px';
+
+      // color for bad
+      if(type==='bad'){
+        el.style.background = 'linear-gradient(180deg,#ff4d6d22,#ff4d6d14)';
+        el.style.border = '2px solid rgba(255,77,109,0.12)';
+        el.style.color = 'var(--danger)';
+      }
+
+      // movement: slowly drift
+      let vx = (Math.random()*2-1) * bugSpeed;
+      let vy = (Math.random()*2-1) * bugSpeed;
+
+      el._move = function(){
+        const rect = el.getBoundingClientRect();
+        const f = field.getBoundingClientRect();
+        let nx = rect.left - f.left + vx;
+        let ny = rect.top - f.top + vy;
+        // bounce
+        if(nx < 4 || nx + rect.width > f.width - 4) vx *= -1;
+        if(ny < 4 || ny + rect.height > f.height - 4) vy *= -1;
+        el.style.left = Math.max(4, Math.min(f.width - rect.width - 4, nx)) + 'px';
+        el.style.top = Math.max(4, Math.min(f.height - rect.height - 4, ny)) + 'px';
+      }
+
+      el.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        clicks++;
+        clicksEl.textContent = clicks;
+        el.classList.add('pop');
+        setTimeout(()=>el.classList.remove('pop'),120);
+
+        if(type==='good'){
+          score += 10;
+          // small speedup
+          bugSpeed += 0.02;
+        } else {
+          score = Math.max(0, score - 15);
+          // penalty: slightly slow spawn speed (makes it harder to recover)
+          currentSpawnMs = Math.min(1200, currentSpawnMs + 50);
+        }
+        scoreEl.textContent = score;
+        // remove bug
+        activeBugs.delete(el);
+        el.remove();
+      });
+
+      field.appendChild(el);
+      activeBugs.add(el);
+
+      return el;
+    }
+
+    function spawnLoop(){
+      // small chance to spawn a bad bug
+      const type = Math.random() < 0.12 ? 'bad' : 'good';
+      createBug(type);
+      // gradually make spawn more frequent as score increases
+      currentSpawnMs = Math.max(280, baseSpawnMs - Math.floor(score/5));
+      // schedule next
+      spawnInterval = setTimeout(spawnLoop, currentSpawnMs);
+    }
+
+    function startGame(){
+      if(gameRunning) return;
+      // reset counters
+      score = 0; clicks = 0; bugSpeed = 1; currentSpawnMs = baseSpawnMs;
+      scoreEl.textContent = score; clicksEl.textContent = clicks;
+      timeLeft = parseInt(durationSelect.value||30);
+      timeEl.textContent = timeLeft;
+      gameRunning = true;
+
+      // clear any old bugs
+      for(const b of Array.from(activeBugs)) b.remove();
+      activeBugs.clear();
+
+      // start spawn and timer
+      spawnLoop();
+      timer = setInterval(()=>{
+        timeLeft--;
+        timeEl.textContent = timeLeft;
+        // move bugs each tick
+        for(const b of activeBugs) b._move();
+
+        if(timeLeft <= 0){ endGame(); }
+      }, 1000/12); // ~12 fps for movement + time
+
+      startBtn.textContent = 'Em Jogo...'; startBtn.disabled = true;
+    }
+
+    function endGame(){
+      gameRunning = false;
+      clearTimeout(spawnInterval); clearInterval(timer);
+      startBtn.textContent = 'Iniciar'; startBtn.disabled = false;
+
+      // remove remaining bugs
+      for(const b of Array.from(activeBugs)) b.remove(); activeBugs.clear();
+
+      // save best
+      if(score > best){ best = score; localStorage.setItem('jogo_best', best); bestEl.textContent = best; }
+
+      // show result modal (simple)
+      setTimeout(()=>{
+        alert('Fim de jogo!\nPontos: '+score+' \nCliques: '+clicks+'');
+      }, 80);
+    }
+
+    function resetGame(){
+      clearTimeout(spawnInterval); clearInterval(timer);
+      gameRunning=false; startBtn.textContent='Iniciar'; startBtn.disabled=false;
+      score = 0; clicks = 0; timeLeft = parseInt(durationSelect.value||30);
+      scoreEl.textContent=score; clicksEl.textContent=clicks; timeEl.textContent=timeLeft;
+      for(const b of Array.from(activeBugs)) b.remove(); activeBugs.clear();
+    }
+
+    // click on field does nothing but count as click (to encourage accuracy)
+    field.addEventListener('click', ()=>{ clicks++; clicksEl.textContent = clicks; });
+
+    startBtn.addEventListener('click', startGame);
+    resetBtn.addEventListener('click', ()=>{ if(confirm('Resetar jogo?')) resetGame(); });
+
+    shareBtn.addEventListener('click', ()=>{
+      const text = `Capture o Bug! — Pontos: ${score} — Cliques: ${clicks}`;
+      if(navigator.share) navigator.share({title:'Minha pontuação', text}).catch(()=>{});
+      else navigator.clipboard.writeText(text).then(()=> alert('Resultado copiado para área de transferência!'));
+    });
+
+    // small responsiveness: remove bugs on resize to avoid out-of-bounds
+    window.addEventListener('resize', ()=>{
+      for(const b of Array.from(activeBugs)) b.remove(); activeBugs.clear();
+    });
+
+    // init time value from select
+    timeEl.textContent = durationSelect.value;
+    durationSelect.addEventListener('change', ()=>{ if(!gameRunning) timeEl.textContent = durationSelect.value; });
+
+  </script>
+</body>
+</html>
